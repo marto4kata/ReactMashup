@@ -1,11 +1,12 @@
-import React from "react";
+import React, {useState} from "react";
+import Calendar from "react-calendar";
 
 class ProductCategoryRow extends React.Component {
   render() {
     const category = this.props.category;
     return (
       <tr>
-        <th colSpan="2">
+        <th colSpan="3">
           {category}
         </th>
       </tr>
@@ -26,6 +27,7 @@ class ProductRow extends React.Component {
       <tr>
         <td>{name}</td>
         <td>{product.price}</td>
+        <td>{product.made}</td>
       </tr>
     );
   }
@@ -33,17 +35,21 @@ class ProductRow extends React.Component {
 
 class ProductTable extends React.Component {
   render() {
-    const filterText = this.props.filterText;
-    const inStockOnly = this.props.inStockOnly;
-
+    const { filterText, inStockOnly, range } = this.props;
+    const [startDate, endDate] = range;
     const rows = [];
     let lastCategory = null;
 
     this.props.products.forEach((product) => {
-      if (product.name.indexOf(filterText) === -1) {
+      const made = new Date(product.made);
+
+      if (inStockOnly && !product.stocked) {
         return;
       }
-      if (inStockOnly && !product.stocked) {
+      if (made >= startDate && made <= endDate) {
+        return;
+      }
+      if (product.name.indexOf(filterText) === -1) {
         return;
       }
       if (product.category !== lastCategory) {
@@ -66,8 +72,9 @@ class ProductTable extends React.Component {
       <table>
         <thead>
         <tr>
-          <th>Name</th>
-          <th>Price</th>
+          <th key="name">Name</th>
+          <th key="price">Price</th>
+          <th key="date made">Date made</th>
         </tr>
         </thead>
         <tbody>{rows}</tbody>
@@ -79,8 +86,28 @@ class ProductTable extends React.Component {
 class SearchBar extends React.Component {
   constructor(props) {
     super(props);
+    this.state = {
+      open: false,
+      showRange: false,
+    }
     this.handleFilterTextChange = this.handleFilterTextChange.bind(this);
     this.handleInStockChange = this.handleInStockChange.bind(this);
+    this.handleCalendarClick = this.handleCalendarClick.bind(this);
+    this.handleClearDateFilter = this.handleClearDateFilter.bind(this)
+    this.handleRangeChange = this.handleRangeChange.bind(this)
+  }
+
+  handleRangeChange(range) {
+    this.props.onRangeChange(range)
+    this.setState( {
+      showRange: true,
+    })
+  }
+
+  handleCalendarClick() {
+    this.setState({
+      open: !this.state.open
+    })
   }
 
   handleFilterTextChange(e) {
@@ -91,7 +118,16 @@ class SearchBar extends React.Component {
     this.props.onInStockChange(e.target.checked);
   }
 
+  handleClearDateFilter() {
+    this.props.onRangeChange([new Date(), new Date()])
+    this.setState({
+      showRange: false,
+    })
+  }
+
   render() {
+    const [startDate, endDate] = this.props.range;
+
     return (
       <form>
         <input
@@ -100,15 +136,36 @@ class SearchBar extends React.Component {
           value={this.props.filterText}
           onChange={this.handleFilterTextChange}
         />
-        <p>
-          <input
-            type="checkbox"
-            checked={this.props.inStockOnly}
-            onChange={this.handleInStockChange}
-          />
-          {' '}
-          Only show products in stock
-        </p>
+        <button type="button" onClick={this.handleCalendarClick}>
+          Calendar
+        </button>
+        {this.state.open && <Calendar
+          selectRange={true}
+          onChange={this.handleRangeChange}
+          value={this.props.range}
+        />}
+        <button type="button" onClick={this.handleClearDateFilter}>
+          Clear Date Filter
+        </button>
+        {this.state.showRange && <div>
+          <div>
+            Start date: {startDate.toLocaleDateString()}
+          </div>
+          <div>
+            End date: {endDate.toLocaleDateString()}
+          </div>
+        </div>}
+        <div>
+          <label>
+            <input
+              type="checkbox"
+              checked={this.props.inStockOnly}
+              onChange={this.handleInStockChange}
+            />
+            {' '}
+            Only show products in stock
+          </label>
+        </div>
       </form>
     );
   }
@@ -119,11 +176,21 @@ class FilterableProductTable extends React.Component {
     super(props);
     this.state = {
       filterText: '',
-      inStockOnly: false
+      inStockOnly: false,
+      range: [new Date(), new Date()],
+      show: false
     };
 
     this.handleFilterTextChange = this.handleFilterTextChange.bind(this);
     this.handleInStockChange = this.handleInStockChange.bind(this);
+    this.handleRangeChange = this.handleRangeChange.bind(this);
+    this.handleBtnClick = this.handleBtnClick.bind(this);
+  }
+
+  handleBtnClick() {
+    this.setState( {
+      show: !this.state.show
+    })
   }
 
   handleFilterTextChange(filterText) {
@@ -138,17 +205,26 @@ class FilterableProductTable extends React.Component {
     })
   }
 
+  handleRangeChange(range) {
+    this.setState({
+      range
+    })
+  }
+
   render() {
     return (
       <div id='store' className="d-flex justify-content-center">
         <div id='table'>
           <SearchBar
+            onRangeChange={this.handleRangeChange}
             filterText={this.state.filterText}
             inStockOnly={this.state.inStockOnly}
             onFilterTextChange={this.handleFilterTextChange}
             onInStockChange={this.handleInStockChange}
+            range={this.state.range}
           />
           <ProductTable
+            range={this.state.range}
             products={this.props.products}
             filterText={this.state.filterText}
             inStockOnly={this.state.inStockOnly}

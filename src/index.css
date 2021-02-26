@@ -163,3 +163,7 @@ label {
 #matchFormatForm div label {
     padding-left: 10px;
 }
+
+.react-calendar {
+    width: 247px;
+}
